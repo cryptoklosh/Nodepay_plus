@@ -1,3 +1,0 @@
-resi-eu.lightningproxies.net:9999:mtwobdmpqlofpyx107817-zone-resi-region-de-session-BuBYQJy54NbY-sessTime-60:hgytenmvjf
-resi-eu.lightningproxies.net:9999:mtwobdmpqlofpyx107817-zone-resi-region-de-session-TB87KzgyzLZW-sessTime-60:hgytenmvjf
-resi-eu.lightningproxies.net:9999:mtwobdmpqlofpyx107817-zone-resi-region-de-session-0mVGeXVM8uPj-sessTime-60:hgytenmvjf
