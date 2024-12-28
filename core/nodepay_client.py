@@ -12,13 +12,14 @@ from core.base_client import BaseClient
 from core.models.exceptions import LoginError, TokenError, CloudflareException, MineError
 from core.utils import logger
 from core.utils.person import Person
+from core.utils.metrics import nodepay_requests_total_counter
 
 # Suppress the specific warning
 warnings.filterwarnings("ignore", category=UserWarning, message="Curlm alread closed!")
 
 
 class NodePayClient(BaseClient):
-    TOKENS_FILE = 'data/tokens_db.json'
+    TOKENS_FILE = 'db/tokens_db.json'
 
     def __init__(self, email: str = '', password: str = '', proxy: str = '', user_agent: str = ''):
         super().__init__()
@@ -101,12 +102,18 @@ class NodePayClient(BaseClient):
             'recaptcha_token': captcha_token
         }
 
-        return await self.make_request(
-            method='POST',
-            url='https://api.nodepay.org/api/auth/register?',
-            headers=self._auth_headers(),
-            json_data=json_data
-        )
+        try:
+            response = await self.make_request(
+                method='POST',
+                url='https://api.nodepay.org/api/auth/register?',
+                headers=self._auth_headers(),
+                json_data=json_data
+            )
+            nodepay_requests_total_counter.labels(account=f"{self.email}", status="success").inc()
+            return response
+        except Exception as e:
+            nodepay_requests_total_counter.labels(account=f"{self.email}", status="fail").inc()
+            raise e
 
     @retry(
         stop=stop_after_attempt(5),
@@ -125,12 +132,17 @@ class NodePayClient(BaseClient):
             'recaptcha_token': captcha_token
         }
 
-        response = await self.make_request(
-            method='POST',
-            url='https://api.nodepay.org/api/auth/login',
-            headers=headers,
-            json_data=json_data
-        )
+        try:
+            response = await self.make_request(
+                method='POST',
+                url='https://api.nodepay.org/api/auth/login',
+                headers=headers,
+                json_data=json_data
+            )
+            nodepay_requests_total_counter.labels(account=f"{self.email}", status="success").inc()
+        except Exception as e:
+            nodepay_requests_total_counter.labels(account=f"{self.email}", status="fail").inc()
+            raise e
 
         if not response.get("success"):
             msg = response.get("msg")
@@ -143,19 +155,30 @@ class NodePayClient(BaseClient):
 
     async def activate(self, access_token: str):
         json_data = {}
-        return await self.make_request(
-            method='POST',
-            url='https://api.nodepay.org/api/auth/active-account?',
-            headers=self._ping_headers(access_token),
-            json_data=json_data
-        )
+        try:
+            response = await self.make_request(
+                method='POST',
+                url='https://api.nodepay.org/api/auth/active-account?',
+                headers=self._ping_headers(access_token),
+                json_data=json_data
+            )
+            nodepay_requests_total_counter.labels(account=f"{self.email}", status="success").inc()
+            return response
+        except Exception as e:
+            nodepay_requests_total_counter.labels(account=f"{self.email}", status="fail").inc()
+            raise e
 
     async def info(self, access_token: str):
-        response = await self.make_request(
-            method='GET',
-            url='https://api.nodepay.org/api/earn/info?',
-            headers=self._ping_headers(access_token)
-        )
+        try:
+            response = await self.make_request(
+                method='GET',
+                url='https://api.nodepay.org/api/earn/info?',
+                headers=self._ping_headers(access_token)
+            )
+            nodepay_requests_total_counter.labels(account=f"{self.email}", status="success").inc()
+        except Exception as e:
+            nodepay_requests_total_counter.labels(account=f"{self.email}", status="fail").inc()
+            raise e
 
         return response['data'].get('total_earning', 0)
 
@@ -178,12 +201,17 @@ class NodePayClient(BaseClient):
             'version': '2.2.7'
         }
 
-        res = await self.make_request(
-            method='POST',
-            url='https://nw.nodepay.org/api/network/ping',
-            headers=self._ping_headers(access_token),
-            json_data=json_data
-        )
+        try:
+            res = await self.make_request(
+                method='POST',
+                url='https://nw.nodepay.org/api/network/ping',
+                headers=self._ping_headers(access_token),
+                json_data=json_data
+            )
+            nodepay_requests_total_counter.labels(account=f"{self.email}", status="success").inc()
+        except Exception as e:
+            nodepay_requests_total_counter.labels(account=f"{self.email}", status="fail").inc()
+            raise e
 
         if not res.get('success'):
             code = res.get('code', '')

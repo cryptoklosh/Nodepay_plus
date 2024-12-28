@@ -4,7 +4,7 @@ import configparser
 import os
 from core.utils.logger import logger
 from core.utils.bot import Bot
-from core.captcha import CaptchaService
+from core.captcha import Service2Captcha
 
 class ConsoleMenu:
     def __init__(self, config_file="data/settings.ini"):
@@ -72,7 +72,7 @@ class ConsoleMenu:
         print(colored("4. Exit", "cyan"))
         print("="*50 + "\n")
 
-    async def handle_bot_action(self, choice):
+    async def handle_bot_action(self):
         settings = self.config['DEFAULT']
         ref_codes = [code.strip() for code in settings['ReferralCodes'].split(',') if code.strip()]
         
@@ -81,17 +81,13 @@ class ConsoleMenu:
             proxy_path=settings['ProxiesFile'],
             threads=int(settings['Threads']),
             ref_codes=ref_codes,
-            captcha_service=CaptchaService(api_key=settings['CaptchaAPIKey']),
+            captcha_service=Service2Captcha(api_key=settings['CaptchaAPIKey']),
             delay_range=(float(settings['DelayMin']), float(settings['DelayMax']))
         )
 
         try:
-            if choice == "1":
-                logger.info("Starting account registration...")
-                await bot.start_registration()
-            else:
-                logger.info("Starting farming...")
-                await bot.start_mining()
+            logger.info("Starting farming...")
+            await bot.start_mining()
         except KeyboardInterrupt:
             logger.info("Stopping bot...")
             bot.stop()
@@ -104,16 +100,4 @@ class ConsoleMenu:
             print(colored(f"{key}: {value}", "green"))
 
     async def run(self):
-        while True:
-            self.print_menu()
-            choice = input("Enter your choice: ").strip()
-            if choice == '4':
-                logger.info("Exiting.")
-                break
-            elif choice in ['1', '2', '3']:
-                if not self.validate_config():
-                    logger.error("Invalid configuration. Please check your settings.")
-                    continue
-                await self.handle_bot_action(choice)
-            else:
-                logger.warning("Invalid choice. Please enter a valid option.")
+        await self.handle_bot_action()

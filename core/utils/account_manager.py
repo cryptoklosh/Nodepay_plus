@@ -15,6 +15,7 @@ from core.utils.file_manager import str_to_file
 from core.utils.proxy_manager import get_proxy, release_proxy
 from pyuseragents import random as random_useragent
 import random
+from core.utils.metrics import mined_nodepay_gauge
 
 
 class AccountManager:
@@ -74,6 +75,7 @@ class AccountManager:
     @staticmethod
     async def create_account_session(email: str, password: str, proxy: str, captcha_service):
         client = NodePayClient(email=email, password=password, proxy=proxy, user_agent=random_useragent())
+        logger.info(f"Creating session for account {email}")
         uid, access_token = await client.get_auth_token(captcha_service)
         return Account(email, password, uid, access_token, client.user_agent, proxy)
 
@@ -112,10 +114,12 @@ class AccountManager:
                     str_to_file('new_accounts.txt', f'{account.email}:{account.password}')
                 return True
             elif action == "mine":
+                logger.info(f"Executing ping for account {account.email}")
                 if await client.ping(account.uid, account.access_token):
                     if not (self.counter % 5):  # Check earnings every 5th cycle
                         total_earning = await client.info(account.access_token)
                         self.update_earnings(account.email, total_earning)
+                        mined_nodepay_gauge.labels(account=f"{account.email}").set(total_earning)
                         logger.success(f"{account.email} | Mine | Points: {total_earning}")
                     else:
                         logger.success(f"{account.email} | Mine")
@@ -174,7 +178,7 @@ class AccountManager:
             return True
         except CloudflareException as e:
             logger.error(f"{email} | Cloudflare error: {str(e)}")
-            return True
+            return {"result": True, "type": "cloudflare"}
         except Exception as e:
             logger.error(f"Unexpected error {email}: {str(e)}")
             # logger.debug(traceback.format_exc())

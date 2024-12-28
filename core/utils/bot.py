@@ -8,6 +8,7 @@ from core.utils import proxy_manager
 from core.utils.account_manager import AccountManager
 from core.utils.file_manager import file_to_list
 from core.utils.proxy_manager import load_proxy
+from core.utils.metrics import nodepay_info, nodepay_requests_total_counter
 
 
 class Bot:
@@ -20,6 +21,7 @@ class Bot:
         self.accounts: List[str] = file_to_list(account_path)
         logger.success(f'Found {len(self.accounts)} accounts')
         load_proxy(proxy_path)
+        nodepay_info.info({"farm_accounts": f"{len(self.accounts)}", "proxies": f"{len(proxy_manager.proxies)}"})
         logger.success(f'Found {len(proxy_manager.proxies)} proxies')
         self.delay_range = delay_range
         self.running_tasks = []
@@ -27,10 +29,12 @@ class Bot:
     async def process_account(self, account: str, action: str):
         email, password = account.split(':', 1)
 
+        logger.info(f"Processing account {email}")
         while not self.should_stop:
             result = await self.account_manager.process_account(email, password, action)
             if result is True and action == "mine":
                 # For mining action, wait for 50 minutes before next cycle
+                logger.info(f"Stopping for 50 minutes to mine again")
                 await asyncio.sleep(60 * 50)
             elif result is True:
                 logger.info(f"{email} | Handled account!")
@@ -42,6 +46,9 @@ class Bot:
 
                 logger.warning(f"{email} | {action.capitalize()} failed{msg}Retrying in 5 minutes.")
                 await asyncio.sleep(300)  # Wait 5 minutes before retry
+            elif result.get("result") is True and result.get("type") == "cloudflare":
+                logger.info(f"Cloudflare issue, will try another proxy in 5 seconds")
+                await asyncio.sleep(5)  # Wait 5 seconds before retry
 
     async def start_action(self, action: str):
         logger.info(f"Starting {action} loop with slow start...")
@@ -53,6 +60,8 @@ class Bot:
                 account = pending_accounts.pop(0)
                 email = account.split(':', 1)[0]
                 delay = random.uniform(*self.delay_range)
+                nodepay_requests_total_counter.labels(account=f"{email}", status="success").reset()
+                nodepay_requests_total_counter.labels(account=f"{email}", status="fail").reset()
                 logger.info(f"{email} | waiting {delay:.2f} sec")
                 await asyncio.sleep(delay)
 

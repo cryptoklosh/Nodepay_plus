@@ -14,3 +14,4 @@ random-username~=1.0.2
 better-proxy==1.2.0
 anticaptchaofficial
 2captcha-python
+prometheus-client==0.21.0

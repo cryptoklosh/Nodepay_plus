@@ -1,0 +1,6 @@
+venv/
+db/
+config/
+data/
+logs/
+__pycache__
